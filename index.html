@@ -311,6 +311,12 @@ section{padding:90px 24px;}
 .success-msg.show{display:block;}
 .success-msg p{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--olive-dk);font-style:italic;margin-bottom:8px;}
 .success-msg small{color:var(--text-mid);font-size:12px;}
+.error-msg{display:none;text-align:center;padding:28px 20px;border:1px solid rgba(180,60,60,0.30);margin-top:20px;background:rgba(255,245,245,0.85);}
+.error-msg.show{display:block;}
+.error-msg p{font-family:'Cormorant Garamond',serif;font-size:20px;color:#8b2020;font-style:italic;margin-bottom:8px;}
+.error-msg small{color:var(--text-mid);font-size:12px;display:block;margin-bottom:16px;}
+.error-msg button{padding:12px 28px;background:var(--olive);border:none;color:white;font-family:'Jost',sans-serif;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:background 0.3s;}
+.error-msg button:hover{background:var(--olive-dk);}
 
 /* ── BEAUTY ── */
 #beauty{background:var(--parchment);}
@@ -646,6 +652,13 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
         <small data-lang="en">Your RSVP has been received. See you on July 30!</small>
         <small data-lang="ro">Confirmarea a fost primită. Ne vedem pe 30 iulie!</small>
       </div>
+      <div class="error-msg" id="errorMsg">
+        <p data-lang="en">Something went wrong.</p>
+        <p data-lang="ro">Ceva nu a mers bine.</p>
+        <small data-lang="en">Please check your connection and try again.</small>
+        <small data-lang="ro">Verificați conexiunea și încercați din nou.</small>
+        <button onclick="retryRSVP()">Try Again / Încearcă Din Nou</button>
+      </div>
     </div>
   </div>
 </section>
@@ -838,13 +851,19 @@ async function submitRSVP(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    document.getElementById('rsvpForm').style.display = 'none';
+    document.getElementById('successMsg').classList.add('show');
   } catch (err) {
-    // no-cors means we can't read the response, but the POST still reaches the Sheet
-    console.log('RSVP sent (no-cors):', err);
+    document.getElementById('errorMsg').classList.add('show');
+    document.querySelectorAll('.submit-btn').forEach(btn => {
+      btn.textContent = currentLang === 'en' ? 'Send RSVP ↗' : 'Trimite Confirmarea ↗';
+      btn.disabled = false;
+    });
   }
+}
 
-  document.getElementById('rsvpForm').style.display = 'none';
-  document.getElementById('successMsg').classList.add('show');
+function retryRSVP() {
+  document.getElementById('errorMsg').classList.remove('show');
 }
 </script>
 </body>
