@@ -737,9 +737,9 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
         <p class="stay-body" data-lang="en">Use these apps for reliable taxi services.</p>
         <p class="stay-body" data-lang="ro">Utilizați aceste aplicații pentru servicii de taxi.</p>
         <div class="transport-links">
-          <a href="https://bolt.eu" target="_blank" class="transport-link">Bolt ↗</a>
-          <a href="https://www.letz.md" target="_blank" class="transport-link">Letz ↗</a>
-          <a href="https://taxi.yandex.com" target="_blank" class="transport-link">Yandex Go ↗</a>
+          <a href="#" onclick="openStore('https://apps.apple.com/app/bolt-request-a-ride/id675033630','https://play.google.com/store/apps/details?id=ee.mtakso.client','https://bolt.eu');return false;" class="transport-link">Bolt ↗</a>
+          <a href="#" onclick="openStore('https://apps.apple.com/us/app/letz-request-a-ride/id1624080667','https://play.google.com/store/apps/details?id=md.letz.client','https://www.letz.md');return false;" class="transport-link">Letz ↗</a>
+          <a href="#" onclick="openStore('https://apps.apple.com/app/yandex-go-taxi-food-delivery/id472650686','https://play.google.com/store/apps/details?id=ru.yandex.taxi','https://taxi.yandex.com');return false;" class="transport-link">Yandex Go ↗</a>
         </div>
       </div>
     </div>
@@ -752,6 +752,18 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
 </footer>
 
 <script>
+
+// Detect device and open correct app store
+function openStore(ios, android, fallback) {
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
+    window.open(ios, '_blank');
+  } else if (/android/i.test(ua)) {
+    window.open(android, '_blank');
+  } else {
+    window.open(fallback, '_blank');
+  }
+}
 
 // Nav transparent → solid on scroll
 const nav = document.getElementById('mainNav');
