@@ -388,6 +388,17 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
 [data-lang]{display:none;}
 [data-lang].active{display:block;}
 
+/* ── LARGE DESKTOP (≥1280px) ── */
+@media(min-width:1280px){
+  .hero-content{margin-top:58vh;max-width:700px;}
+  .hero-bg img{object-position:center 18%;}
+  .invite-names{font-size:clamp(56px,5vw,76px);}
+}
+@media(min-width:1600px){
+  .hero-content{margin-top:54vh;}
+  .hero-bg img{object-position:center 16%;}
+}
+
 /* ── RESPONSIVE ── */
 @media(max-width:900px){nav{gap:18px;}nav a{font-size:8.5px;}}
 @media(max-width:700px){
