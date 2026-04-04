@@ -486,8 +486,8 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
 </div>
 
 <div class="lang-toggle">
-  <button class="lang-btn active" onclick="setLang('en')">EN</button>
-  <button class="lang-btn" onclick="setLang('ro')">RO</button>
+  <button class="lang-btn" onclick="setLang('en')">EN</button>
+  <button class="lang-btn active" onclick="setLang('ro')">RO</button>
 </div>
 
 <nav id="mainNav">
@@ -872,7 +872,7 @@ window.addEventListener('scroll', function() {
   nav.classList.toggle('scrolled', window.scrollY > 60);
 }, { passive: true });
 
-let currentLang = 'en';
+let currentLang = 'ro';
 function setLang(lang) {
   currentLang = lang;
   document.querySelectorAll('[data-lang]').forEach(el => {
@@ -908,7 +908,7 @@ function closeDrawer() {
   document.getElementById('hamburger').classList.remove('open');
   document.body.style.overflow = '';
 }
-setLang('en');
+setLang('ro');
 const obs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.1 });
