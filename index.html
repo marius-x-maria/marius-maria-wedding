@@ -914,8 +914,8 @@ function setLang(lang) {
   const ni = document.getElementById('nameInput');
   if (ni) ni.placeholder = lang === 'en' ? 'e.g. Maria Tulgara, Marius Onofrei' : 'ex. Maria Tulgara, Marius Onofrei';
   const labels = {
-    en: ['Home','Our Story','The Big Day','RSVP','Beauty','Discover Moldova','Stay & Travel'],
-    ro: ['Acasă','Povestea Noastră','Ziua Mare','Confirmare','Frumusețe','Descoperă Moldova','Cazare & Călătorie']
+    en: ['Home','Our Story','The Big Day','RSVP','Stay & Travel','Beauty','Discover Moldova','Gift','Bars & Restaurants'],
+    ro: ['Acasă','Povestea Noastră','Ziua Mare','Confirmare','Cazare & Călătorie','Frumusețe','Descoperă Moldova','Cadou','Baruri & Restaurante']
   };
   document.querySelectorAll('.nav-drawer a').forEach((a, i) => {
     if (labels[lang][i]) a.textContent = labels[lang][i];
