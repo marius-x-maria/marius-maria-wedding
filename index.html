@@ -681,15 +681,7 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
           <label class="form-label" data-lang="ro">Informații Dietetice (opțional)</label>
           <textarea class="form-textarea" id="dietInput" placeholder="Allergies, intolerances, or vegetarian option..."></textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label" data-lang="en">Accommodation at Venue (limited to 55 places)</label>
-          <label class="form-label" data-lang="ro">Cazare la Locație (limitată la 55 de locuri)</label>
-          <div class="radio-group">
-            <label class="radio-label"><input type="radio" name="accommodation" value="yes" required><span data-lang="en">Yes, I need accommodation at Complexul Turistic „Costești"</span><span data-lang="ro">Da, am nevoie de cazare la Complexul Turistic „Costești"</span></label>
-            <label class="radio-label"><input type="radio" name="accommodation" value="no"><span data-lang="en">No</span><span data-lang="ro">Nu</span></label>
-          </div>
-        </div>
-        <div class="form-group">
+<div class="form-group">
           <label class="form-label" data-lang="en">Transportation</label>
           <label class="form-label" data-lang="ro">Transport</label>
           <div class="radio-group">
@@ -960,7 +952,6 @@ async function submitRSVP(e) {
     name:          document.getElementById('nameInput').value,
     attendance:    document.querySelector('[name="attendance"]:checked')?.value || '—',
     dietary:       document.getElementById('dietInput').value,
-    accommodation: document.querySelector('[name="accommodation"]:checked')?.value || '—',
     transport:     document.querySelector('[name="transport"]:checked')?.value || '—',
     zeama:         document.querySelector('[name="zeama"]:checked')?.value || '—'
   };
