@@ -960,24 +960,18 @@ async function submitRSVP(e) {
     zeama:         document.querySelector('[name="zeama"]:checked')?.value || '—'
   };
 
-  try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    document.getElementById('rsvpForm').style.display = 'none';
-    const successMsg = document.getElementById('successMsg');
-    successMsg.classList.add('show');
-    setTimeout(() => successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-  } catch (err) {
-    document.getElementById('errorMsg').classList.add('show');
-    document.querySelectorAll('.submit-btn').forEach(btn => {
-      btn.textContent = currentLang === 'en' ? 'Send RSVP ↗' : 'Trimite Confirmarea ↗';
-      btn.disabled = false;
-    });
-  }
+  // Fire and forget — no-cors response is opaque, can't be read either way
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+
+  document.getElementById('rsvpForm').style.display = 'none';
+  const successMsg = document.getElementById('successMsg');
+  successMsg.classList.add('show');
+  setTimeout(() => successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
 }
 
 function retryRSVP() {
