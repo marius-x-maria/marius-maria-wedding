@@ -657,10 +657,8 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
     <span class="section-eyebrow" data-lang="ro">Ești Invitat</span>
     <h2 class="section-title" data-lang="en">Confirm Your <em>Attendance</em></h2>
     <h2 class="section-title" data-lang="ro">Confirmați <em>Prezența</em></h2>
-    <p class="section-body" data-lang="en">Please respond by the deadline. This RSVP covers both the wedding celebration and the second-day event.</p>
-    <p class="section-body" data-lang="ro">Vă rugăm să răspundeți până la termenul limită. Această confirmare acoperă atât nunta cât și evenimentul din a doua zi.</p>
-    <div class="rsvp-deadline" data-lang="en">Deadline: June 15, 2026</div>
-    <div class="rsvp-deadline" data-lang="ro">Termen Limită: 15 Iunie 2026</div>
+    <p class="section-body" data-lang="en">Please confirm your attendance at our wedding by 1 July 2026.</p>
+    <p class="section-body" data-lang="ro">Vă rugăm să ne confirmați prezența la eveniment până pe data de 1 Iulie 2026.</p>
     <div class="rsvp-card">
       <form id="rsvpForm" onsubmit="submitRSVP(event)">
         <div class="form-group">
@@ -695,6 +693,14 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
           <div class="radio-group">
             <label class="radio-label"><input type="radio" name="transport" value="organized" required><span data-lang="en">I require organized transportation</span><span data-lang="ro">Solicit transport organizat</span></label>
             <label class="radio-label"><input type="radio" name="transport" value="taxi"><span data-lang="en">I will take a taxi (Bolt / Letz / Yandex Go)</span><span data-lang="ro">Voi lua un taxi (Bolt / Letz / Yandex Go)</span></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-lang="en">Second-day Zeamă at Complexul Turistic „Costești" (15:00)</label>
+          <label class="form-label" data-lang="ro">Zeamă a doua zi la Complexul Turistic „Costești" (ora 15:00)</label>
+          <div class="radio-group">
+            <label class="radio-label"><input type="radio" name="zeama" value="yes" required><span data-lang="en">Yes, I'll be there</span><span data-lang="ro">Da, voi fi prezent(ă)</span></label>
+            <label class="radio-label"><input type="radio" name="zeama" value="no"><span data-lang="en">No</span><span data-lang="ro">Nu</span></label>
           </div>
         </div>
         <button type="submit" class="submit-btn" data-lang="en">Send RSVP ↗</button>
@@ -953,7 +959,8 @@ async function submitRSVP(e) {
     attendance:    document.querySelector('[name="attendance"]:checked')?.value || '—',
     dietary:       document.getElementById('dietInput').value,
     accommodation: document.querySelector('[name="accommodation"]:checked')?.value || '—',
-    transport:     document.querySelector('[name="transport"]:checked')?.value || '—'
+    transport:     document.querySelector('[name="transport"]:checked')?.value || '—',
+    zeama:         document.querySelector('[name="zeama"]:checked')?.value || '—'
   };
 
   try {
