@@ -486,7 +486,7 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
   <a href="#stay" onclick="closeDrawer()">Stay &amp; Travel</a>
   <a href="#beauty" onclick="closeDrawer()">Beauty</a>
   <a href="#moldova" onclick="closeDrawer()">Discover Moldova</a>
-  <a href="#gift" onclick="closeDrawer()">Cadou de Nuntă</a>
+  <a href="#gift" id="drawer-gift-link" onclick="closeDrawer()">Cadou de Nuntă</a>
   <a href="#nightlife" onclick="closeDrawer()">Bars &amp; Restaurants</a>
 </div>
 
@@ -507,7 +507,7 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
   <a href="#stay"    data-nav-en="Stay &amp; Travel" data-nav-ro="Cazare">Stay &amp; Travel</a>
   <a href="#beauty"  data-nav-en="Beauty"            data-nav-ro="Frumusețe">Beauty</a>
   <a href="#moldova"    data-nav-en="Moldova"              data-nav-ro="Moldova">Moldova</a>
-  <a href="#gift"      data-nav-en="Gift"                  data-nav-ro="Cadou">Gift</a>
+  <a href="#gift" id="nav-gift-link"      data-nav-en="Gift"                  data-nav-ro="Cadou">Gift</a>
   <a href="#nightlife" data-nav-en="Bars &amp; Restaurants" data-nav-ro="Baruri &amp; Restaurante">Bars &amp; Restaurants</a>
 </nav>
 
@@ -967,6 +967,8 @@ function setLang(lang) {
   document.querySelectorAll('.nav-drawer a').forEach((a, i) => {
     if (labels[lang][i]) a.textContent = labels[lang][i];
   });
+  const giftLinks = [document.getElementById('nav-gift-link'), document.getElementById('drawer-gift-link')];
+  giftLinks.forEach(el => { if (el) el.style.display = lang === 'ro' ? 'none' : ''; });
 }
 function toggleDrawer() {
   const d = document.getElementById('navDrawer');
