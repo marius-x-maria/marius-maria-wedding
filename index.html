@@ -667,6 +667,21 @@ footer p{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.12em;}
     <p class="section-body" data-lang="ro">Vă rugăm să ne confirmați prezența la eveniment.</p>
     <div class="rsvp-deadline" data-lang="en">Confirm by: 1 July 2026</div>
     <div class="rsvp-deadline" data-lang="ro">Confirmați până pe: 1 Iulie 2026</div>
+
+    <!-- RSVP countdown / closed banner — injected by initRSVPDeadline() -->
+    <div id="rsvp-status" style="margin:12px auto 0;max-width:560px;text-align:center;">
+      <!-- countdown (shown when open) -->
+      <div id="rsvp-countdown" style="display:none;padding:11px 24px;border:1px solid rgba(107,122,78,0.4);background:rgba(255,255,255,0.55);font-family:'Jost',sans-serif;">
+        <span data-lang="en" id="rsvp-countdown-en" style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--olive-dk);font-weight:400;"></span>
+        <span data-lang="ro" id="rsvp-countdown-ro" style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--olive-dk);font-weight:400;"></span>
+      </div>
+      <!-- closed message (shown when deadline passed) -->
+      <div id="rsvp-closed" style="display:none;padding:18px 24px;border:1px solid rgba(107,122,78,0.5);background:rgba(255,255,255,0.65);font-family:'Cormorant Garamond',serif;">
+        <p data-lang="en" style="font-size:20px;font-style:italic;color:var(--olive-dk);font-weight:300;margin:0;">RSVP is now closed — thank you!</p>
+        <p data-lang="ro" style="font-size:20px;font-style:italic;color:var(--olive-dk);font-weight:300;margin:0;">RSVP s-a închis — mulțumim!</p>
+      </div>
+    </div>
+
     <div class="rsvp-card">
       <form id="rsvpForm" onsubmit="submitRSVP(event)">
         <div class="form-group">
@@ -1024,6 +1039,36 @@ async function submitRSVP(e) {
 function retryRSVP() {
   document.getElementById('errorMsg').classList.remove('show');
 }
+
+// ── RSVP deadline enforcement ──
+function initRSVPDeadline() {
+  var deadline = new Date('2026-07-01T00:00:00');
+  var now = new Date();
+  // Strip time from today for a clean day comparison
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var deadlineDay = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+  var msPerDay = 1000 * 60 * 60 * 24;
+  var daysLeft = Math.round((deadlineDay - today) / msPerDay);
+
+  if (daysLeft <= 0) {
+    // Deadline has passed — hide form, show closed message
+    var form = document.getElementById('rsvpForm');
+    if (form) form.style.display = 'none';
+    document.getElementById('rsvp-closed').style.display = 'block';
+  } else {
+    // Show countdown
+    var enText = 'RSVP closes in ' + daysLeft + (daysLeft === 1 ? ' day' : ' days');
+    var roText = 'RSVP se închide în ' + daysLeft + (daysLeft === 1 ? ' zi' : ' zile');
+    document.getElementById('rsvp-countdown-en').textContent = enText;
+    document.getElementById('rsvp-countdown-ro').textContent = roText;
+    document.getElementById('rsvp-countdown').style.display = 'block';
+    // Apply current lang visibility (setLang already ran, so re-apply)
+    document.querySelectorAll('#rsvp-countdown [data-lang]').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.lang === currentLang);
+    });
+  }
+}
+initRSVPDeadline();
 </script>
 </body>
 </html>
