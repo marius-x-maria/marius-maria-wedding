@@ -1042,7 +1042,7 @@ function retryRSVP() {
 
 // ── RSVP deadline enforcement ──
 function initRSVPDeadline() {
-  var deadline = new Date('2026-07-01T00:00:00');
+  var deadline = new Date('2026-07-11T00:00:00'); // soft close — form stays open 10 days past displayed deadline
   var now = new Date();
   // Strip time from today for a clean day comparison
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
