@@ -20,8 +20,8 @@ Native Google Drive folder-sharing and Google Forms' file-upload question both *
 
 Google Apps Script Web Apps cap out at **30 simultaneous executions per deploying account, 1,000 per script** (2026 quotas, same for free and paid accounts) — this is a real, hittable ceiling with ~50 guests uploading in a burst right after the ceremony. Current design:
 
-1. **Client processes up to 2 files at a time per device** (`runGalleryQueuePool` in `index.html`, `GALLERY_CONCURRENCY = 2`) — a guest picking 10 photos does not fire 10 simultaneous requests, but does run 2 concurrently rather than strictly 1-at-a-time (see the Performance Ceiling section below for why it's not higher).
-2. **Real per-file verification** (`doGet` check) — a failed check re-polls (up to 4 times, flat 2s interval), it never silently re-uploads. Only an explicit guest tap on a failed (✕) badge triggers an actual new upload attempt.
+1. **Client processes up to 2 files at a time per device** (`runGalleryQueuePool` in `index.html`, `GALLERY_CONCURRENCY = 2`) — a guest picking 10 photos does not fire 10 simultaneous requests, but does run 2 concurrently rather than strictly 1-at-a-time (see the Performance Ceiling section below for why it's not higher). **Drops to 1 automatically when any queued file exceeds `GALLERY_LARGE_FILE_BYTES` (5MB)** — two large uploads share one uplink and each halves the other's throughput.
+2. **Real per-file verification** (`doGet` check) — a failed check re-polls, it never silently re-uploads. Only an explicit guest tap on a failed (✕) badge triggers an actual new upload attempt. **The polling window is deadline-driven and scales with file size** (`galleryVerifyBudgetMs`): 12s floor, 5-minute ceiling, with an escalating 2→10s interval. See "Verification window" below.
 
 ## Performance ceiling (researched 2026-07-29)
 
@@ -122,20 +122,52 @@ To change the reveal moment, edit the single `new Date(...)` line — nothing el
 1. Guest taps "Choose Photos" / "Choose Videos" (`multiple` attribute — can pick several at once, and tap again to add more before confirming)
 2. Each pick adds a thumbnail to the preview grid (image thumb via `createObjectURL`, or a 🎬 icon + filename for video) with a ✕ remove button
 3. Guest taps "Upload N items" — this locks in the current pending set (further removes are disabled once queued)
-4. `runGalleryQueue` processes **one file at a time**: read as base64 → POST (no-cors, fire-and-forget) → wait 2.5s → GET verification check → badge updates to ✓ or retries
-5. On verification failure, automatically retries the same file up to 2 more times before giving up
-6. A file that still fails after retries gets a ✕ badge that's itself tappable to manually retry, independent of the rest of the batch
+4. `runGalleryQueuePool` runs up to `GALLERY_CONCURRENCY` files at once (1 when anything is large): read as base64 → POST (no-cors, fire-and-forget) → first verification check at 2s → GET check → badge updates to ✓, or re-checks until the deadline
+5. **The file is uploaded exactly once per call.** Verification failures re-CHECK, never re-upload. There is no automatic retry of the upload itself
+6. A file whose verification deadline expires gets a ✕ badge that is tappable to manually retry, independent of the rest of the batch. Manual retry has no attempt cap
 7. Succeeded thumbnails auto-clear ~1.8s after the whole batch finishes; failed ones stay until retried
+
+## Verification window (rewritten 2026-10-03)
+
+The POST is never awaited — `no-cors` gives nothing readable back — so the verification clock starts when the request is **initiated**, not when it completes. The window must therefore outlast the *transfer*, not just Drive's search-index lag.
+
+The old window was flat: first check at 2s, three more at 2s ≈ **8 seconds for every file**. Correct for a 3MB photo. Badly wrong for a 25MB video, which can spend minutes on a phone uplink. The guest saw ✕ while the upload was still in flight, tapped retry, and the retry minted a fresh `storedName` — so the original could not be de-duplicated against it and **both copies landed in Drive**.
+
+Now deadline-driven, scaled by file size (`galleryVerifyBudgetMs`):
+
+| Constant | Value | Why |
+|---|---|---|
+| `GALLERY_ASSUMED_UPLINK_BPS` | 100 KB/s | Deliberately pessimistic for 4G / venue wifi |
+| `GALLERY_BASE64_OVERHEAD` | 1.37 | base64 inflation (~4/3) plus the JSON envelope |
+| `GALLERY_VERIFY_MIN_MS` | 12 000 | Floor — Drive index lag on a small file |
+| `GALLERY_VERIFY_MAX_MS` | 300 000 | Ceiling — after 5 minutes it really has failed |
+| poll interval | 2s → 10s, escalating | Keeps a long wait to ~35 checks, not 150, against the shared 30-execution cap |
+
+Measured budgets: 100KB → 14s · 3MB → 75s · 25MB → 300s (capped).
+
+**Erring generous is deliberate.** Success still reports the moment the file appears; only *failure* is reported later. A slow ✓ costs patience; a premature ✕ costs a duplicate video.
+
+The constants are tuned against an **assumed** uplink, not a measured one — no real video upload has ever been timed on this site. If genuine failures start taking too long to surface, raise `GALLERY_ASSUMED_UPLINK_BPS`.
+
+## Regression test — run before touching the gallery
+
+```bash
+python "C:\New life\wedding\tools\test_gallery_upload.py"
+```
+
+12 behaviour tests through real Chromium against the real `index.html`. **`fetch` is stubbed entirely** — no network, no Apps Script call, nothing written to Drive — so it is safe to run as often as you like. It covers: the budget curve and its floor/ceiling, the escalating poll interval, a slow upload reporting ✓ instead of a false ✕, the file being POSTed exactly once (the duplicate-video regression), per-file oversize rejection with the rest of the batch still uploading, oversized files staying removable, and concurrency dropping to 1 for large files.
+
+Exit 0 = pass. Written against the 2026-10-03 fix; if it fails, the upload path has regressed.
 
 ## Expected output
 
-Real, verified per-file success/failure — not optimistic. A guest who uploads 10 photos sees each one individually confirmed (or flagged if it genuinely failed after 3 total attempts).
+Real, verified per-file success/failure — not optimistic. A guest who uploads 10 photos sees each one individually confirmed, or flagged once its verification deadline expires.
 
 ## Edge cases
 
-- **File too large** (>25MB): rejected client-side with a friendly message before any upload attempt, and backstopped server-side in the Apps Script in case the client check is ever bypassed
-- **Transient Apps Script concurrency rejection** (30-simultaneous-execution cap hit by other guests uploading at the same time): self-heals via the automatic 2-retry logic in most cases
-- **Persistent failure after 3 attempts**: flagged with a ✕ badge on that specific thumbnail, tappable to retry manually — does not block or fail the rest of the batch
+- **File too large** (>25MB): rejected **per file**, not per batch — the oversized item gets its own ⚠ badge and a "too large" tooltip, stays removable, and every other file in the selection uploads normally. Backstopped server-side in the Apps Script in case the client check is ever bypassed. For scale: 25MB is ~20–25s of 1080p or ~4s of 4K, so for video this is the common case
+- **Transient Apps Script concurrency rejection** (30-simultaneous-execution cap hit by other guests uploading at the same time): the verification window usually outlasts it, so the file is confirmed late rather than falsely failed
+- **Verification deadline expires**: flagged with a ✕ badge on that specific thumbnail, tappable to retry manually — does not block or fail the rest of the batch
 - **FileReader fails to read the local file** (rare — corrupt file, permissions): counted the same as a failed upload for that item, same retry/flag behavior
 - **Guest revisits after uploading**: nothing prevents uploading more later — each file gets its own collision-proof name (timestamp + random token), no dedup needed
 - **Drive folder runs out of space**: uploads will fail verification (file won't exist) and get flagged to the guest via the normal failed-badge path — no silent failure anymore, unlike v1

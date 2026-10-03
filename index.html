@@ -1675,7 +1675,8 @@ function addGalleryFiles(fileList, kind) {
 
 function removeGalleryFile(index) {
   var item = galleryPendingFiles[index];
-  if (item.status !== 'pending') return; // can't remove once queued/uploading/done
+  // 'toolarge' is removable: it was never queued, and removing it is the only fix.
+  if (item.status !== 'pending' && item.status !== 'toolarge') return; // can't remove once queued/uploading/done
   if (item.url) URL.revokeObjectURL(item.url);
   galleryPendingFiles.splice(index, 1);
   renderGalleryPreview();
@@ -1751,17 +1752,24 @@ function confirmGalleryUpload() {
   var toUpload = galleryPendingFiles.filter(function(it) { return it.status === 'pending'; });
   if (toUpload.length === 0) return;
 
+  // Oversized files are rejected INDIVIDUALLY, never as a batch. Blocking the whole
+  // selection punished a guest for one bad file and named none of them — and the only
+  // identifying text on a video tile is 8px, clipped at 24px, so "which one?" was a
+  // guessing game. 25MB is roughly 20-25s of 1080p or ~4s of 4K, so for video an
+  // oversized file is the common case, not an edge case.
   var oversized = toUpload.filter(function(item) { return item.file.size > GALLERY_MAX_BYTES; });
-  if (oversized.length > 0) {
-    document.getElementById('galleryUploadStatus').textContent =
-      currentLang === 'en' ? oversized.length + ' file(s) too large — remove them or choose smaller ones.'
-                            : oversized.length + ' fișier(e) prea mari — eliminați-le sau alegeți altele mai mici.';
-    return;
-  }
+  var sized = toUpload.filter(function(item) { return item.file.size <= GALLERY_MAX_BYTES; });
+  oversized.forEach(markGalleryOversized);
 
   document.getElementById('gallerySuccessMsg').classList.remove('show');
   document.getElementById('galleryConfirmWrap').style.display = 'none';
-  toUpload.forEach(function(item) {
+
+  if (sized.length === 0) {
+    document.getElementById('galleryUploadStatus').textContent = galleryOversizedText(oversized.length);
+    return;
+  }
+
+  sized.forEach(function(item) {
     item.status = 'queued';
     if (item.removeBtnEl) item.removeBtnEl.style.display = 'none';
     setGalleryBadge(item, '⏳', 'gallery-badge-pending');
@@ -1773,13 +1781,38 @@ function confirmGalleryUpload() {
   // throughput on the table without meaningfully protecting the shared 30-slot
   // cap. 2 concurrent per device roughly halves wall-clock time for a guest's
   // own batch while staying modest if many guests overlap at once.
-  runGalleryQueuePool(toUpload.slice(), toUpload.length);
+  // Concurrency drops to 1 as soon as anything large is queued. Two concurrent 25MB
+  // uploads share one uplink and each halves the other's throughput, which doubles the
+  // time before EITHER completes — and doubles peak browser memory, since each in-flight
+  // file holds its base64 string, the split copy, and the JSON body at once.
+  var hasLarge = sized.some(function(item) { return item.file.size > GALLERY_LARGE_FILE_BYTES; });
+  runGalleryQueuePool(sized.slice(), sized.length, hasLarge ? 1 : GALLERY_CONCURRENCY);
 }
 
 var GALLERY_CONCURRENCY = 2;
+var GALLERY_LARGE_FILE_BYTES = 5 * 1024 * 1024;
 
-function runGalleryQueuePool(itemsLeft, total) {
+function galleryOversizedText(n) {
+  return currentLang === 'en'
+    ? n + ' file(s) too large (max 25MB) — tap ✕ to remove, or choose a shorter clip.'
+    : n + ' fișier(e) prea mari (maxim 25MB) — apăsați ✕ pentru eliminare sau alegeți un clip mai scurt.';
+}
+
+// Marked with ⚠ rather than ✕ and given NO retry handler: retrying cannot make a file
+// smaller. The remove button stays available so the guest can clear it and continue.
+function markGalleryOversized(item) {
+  item.status = 'toolarge';
+  setGalleryBadge(item, '⚠', 'gallery-badge-fail');
+  if (item.badgeEl) {
+    item.badgeEl.style.cursor = 'default';
+    item.badgeEl.title = currentLang === 'en' ? 'Too large — max 25MB' : 'Prea mare — maxim 25MB';
+  }
+  if (item.removeBtnEl) item.removeBtnEl.style.display = 'flex';
+}
+
+function runGalleryQueuePool(itemsLeft, total, concurrency) {
   var doneCount = 0;
+  concurrency = concurrency || GALLERY_CONCURRENCY;
   updateGalleryOverallStatus(0, total);
 
   function launchNext() {
@@ -1788,11 +1821,11 @@ function runGalleryQueuePool(itemsLeft, total) {
     uploadOneGalleryItem(item, function() {
       doneCount++;
       updateGalleryOverallStatus(doneCount, total);
-      launchNext(); // keep exactly GALLERY_CONCURRENCY workers busy
+      launchNext(); // keep exactly `concurrency` workers busy
     });
   }
 
-  var startCount = Math.min(GALLERY_CONCURRENCY, itemsLeft.length);
+  var startCount = Math.min(concurrency, itemsLeft.length);
   for (var i = 0; i < startCount; i++) launchNext();
 }
 
@@ -1800,10 +1833,16 @@ function updateGalleryOverallStatus(doneCount, total) {
   var el = document.getElementById('galleryUploadStatus');
   if (doneCount >= total) {
     var failedCount = galleryPendingFiles.filter(function(it) { return it.status === 'failed'; }).length;
+    var tooLargeCount = galleryPendingFiles.filter(function(it) { return it.status === 'toolarge'; }).length;
     if (failedCount > 0) {
       el.textContent = currentLang === 'en'
         ? (total - failedCount) + '/' + total + ' uploaded — ' + failedCount + ' failed, tap ✕ to retry'
         : (total - failedCount) + '/' + total + ' încărcate — ' + failedCount + ' eșuate, apăsați ✕ pentru reîncercare';
+      if (tooLargeCount > 0) el.textContent += ' · ' + galleryOversizedText(tooLargeCount);
+    } else if (tooLargeCount > 0) {
+      // Everything that could be uploaded was. Only the oversized ones remain.
+      el.textContent = galleryOversizedText(tooLargeCount);
+      document.getElementById('gallerySuccessMsg').classList.add('show');
     } else {
       el.textContent = '';
       document.getElementById('gallerySuccessMsg').classList.add('show');
@@ -1855,6 +1894,10 @@ function uploadOneGalleryItem(item, cb) {
       body: JSON.stringify({ storedName: item.storedName, mimeType: item.file.type, data: base64 })
     }).catch(function() {});
 
+    // The fetch above is never awaited (no-cors gives us nothing readable), so the
+    // verification clock starts when the request is INITIATED, not when it completes.
+    // The deadline must therefore outlast the transfer itself, not just Drive's index lag.
+    item.verifyDeadline = Date.now() + galleryVerifyBudgetMs(item.file);
     setTimeout(function() { pollGalleryVerification(item, 0, cb); }, 2000);
   };
   reader.onerror = function() {
@@ -1863,10 +1906,37 @@ function uploadOneGalleryItem(item, cb) {
   reader.readAsDataURL(item.file);
 }
 
-var GALLERY_VERIFY_POLLS = 3; // re-CHECKS, not re-uploads
-var GALLERY_VERIFY_INTERVAL_MS = 2000; // flat interval — this is "wait for Drive's index to
-  // catch up", not a rate-limit scenario, so a steady interval clears faster than escalating
-  // backoff for the same number of attempts
+// Verification budget scales with file size. The old flat window — first check at 2s,
+// three more at 2s — gave every file about 8 seconds. That is correct for a 3MB photo,
+// where the only thing being waited on is Drive's search index catching up. It is badly
+// wrong for a 25MB video, which can spend MINUTES on a phone uplink before Apps Script
+// has even received it. The guest saw ✕ while the upload was still in flight, tapped
+// retry, and the retry minted a fresh storedName — so the original could not be
+// de-duplicated against it and BOTH copies landed in Drive.
+//
+// Erring generous is deliberate: a slow ✓ costs patience, a premature ✕ costs a duplicate.
+// Success still reports the moment the file appears; only FAILURE is reported later.
+var GALLERY_ASSUMED_UPLINK_BPS = 100 * 1024; // 100 KB/s — deliberately pessimistic for 4G/venue wifi
+var GALLERY_BASE64_OVERHEAD = 1.37;          // base64 inflation (~4/3) plus JSON envelope
+var GALLERY_VERIFY_MIN_MS = 12000;           // floor: Drive index lag on a small file
+var GALLERY_VERIFY_MAX_MS = 300000;          // ceiling: 5 minutes, then it really has failed
+var GALLERY_VERIFY_POLL_BASE_MS = 2000;
+var GALLERY_VERIFY_POLL_STEP_MS = 1500;
+var GALLERY_VERIFY_POLL_MAX_MS = 10000;      // escalate, so a 5-minute wait is ~35 checks not 150
+
+function galleryVerifyBudgetMs(file) {
+  var onWireBytes = file.size * GALLERY_BASE64_OVERHEAD;
+  var transferMs = (onWireBytes / GALLERY_ASSUMED_UPLINK_BPS) * 1000;
+  var budget = transferMs * 1.5 + GALLERY_VERIFY_MIN_MS;
+  return Math.max(GALLERY_VERIFY_MIN_MS, Math.min(GALLERY_VERIFY_MAX_MS, Math.round(budget)));
+}
+
+// Escalating interval keeps the Apps Script execution count modest on long waits —
+// the 30-simultaneous-execution cap is shared across every guest uploading at once.
+function galleryPollDelayMs(pollAttempt) {
+  return Math.min(GALLERY_VERIFY_POLL_MAX_MS,
+                  GALLERY_VERIFY_POLL_BASE_MS + pollAttempt * GALLERY_VERIFY_POLL_STEP_MS);
+}
 
 function pollGalleryVerification(item, pollAttempt, cb) {
   fetch(GALLERY_SCRIPT_URL + '?check=' + encodeURIComponent(item.storedName))
@@ -1880,8 +1950,9 @@ function handleGalleryPollResult(item, pollAttempt, cb, exists) {
     finishGalleryItem(item, cb, true);
     return;
   }
-  if (pollAttempt < GALLERY_VERIFY_POLLS) {
-    setTimeout(function() { pollGalleryVerification(item, pollAttempt + 1, cb); }, GALLERY_VERIFY_INTERVAL_MS);
+  // Deadline-driven, not count-driven — the number of checks is whatever fits the budget.
+  if (Date.now() < (item.verifyDeadline || 0)) {
+    setTimeout(function() { pollGalleryVerification(item, pollAttempt + 1, cb); }, galleryPollDelayMs(pollAttempt));
     return;
   }
   finishGalleryItem(item, cb, false);

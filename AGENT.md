@@ -12,7 +12,58 @@ This is a production site with real guests visiting. Every change must be correc
 
 ---
 
-## What's Built
+## Capability Registry
+
+**Single source of truth for what exists.** Four states: `included` (built, expected to work) · `available` (partial — the note says exactly what is missing) · `absent` (not built; add only on request) · `removed` (deliberately deleted; restore only on request).
+
+**Without a row, a capability is `absent`.** Existing code is not a request — finding a half-built thing does not authorize finishing it.
+
+| Capability | State | Note |
+|---|---|---|
+| Single-file PWA (`index.html`) | `included` | No build step, no deps beyond Google Fonts |
+| Live at marius-maria.com | `included` | GitHub Pages + `CNAME`. **Production — real guests visit** |
+| Bilingual EN / RO | `included` | `data-lang` attributes; RO is the default on load. Rule 5 |
+| All 11 content sections | `included` | Hero, Story, Big Day, RSVP, Gallery, Library, Gift, Stay, Beauty, Moldova, Nightlife — see reference below |
+| RSVP form → Google Sheets | `included` | 5 fields via Apps Script. Fire-and-forget `no-cors` |
+| Guest photo upload → Drive | `available` | Live since 2026-07-29. **Known ceiling: 6 photos ≈ 70–80 s** — Apps Script's 30-execution cap. Upgrade path documented, deliberately not taken |
+| Guest **video** upload → Drive | `included` | Always supported — dedicated `accept="video/*"` picker, bilingual labels, 🎬 preview tile. 25 MB cap ≈ 20–25 s of 1080p or ~4 s of 4K |
+| Upload verification | `included` | `doGet ?check=` re-polls rather than re-uploading; only a manual tap retries. **Window now scales with file size** (12 s floor → 5 min ceiling). Fixed 2026-10-03: the old flat ~8 s window declared large videos failed mid-flight, and the retry minted a new `storedName` so both copies landed |
+| Oversized-file handling | `included` | Rejected **per file** with a ⚠ badge and a reason, not per batch. The rest of the selection still uploads |
+| Upload accessibility | `absent` | Known defects, deferred 2026-10-03: both pickers are `display:none` so keyboard-unreachable; retry badge is touch-only; no `aria-live` on status; remove button 22 px vs 44 px minimum; `Remove` label English-only in RO mode |
+| Upload progress detail | `absent` | The ⬆ badge is static for the whole read + POST + verify window. No byte-level progress — on a long video it reads as frozen |
+| Responsive layout | `included` | 7 breakpoints: 1600/1280/900/700/680/420/360 + landscape phone. Test at 375 and 680 per Rule 7 |
+| Reduced-motion support | `included` | All animation disabled under `prefers-reduced-motion` |
+| PWA install | `available` | `manifest.json` + apple-touch-icon only. **No service worker** — not installable offline |
+| Open Graph / Twitter Card | `included` | `og-invite.png` 1200×630 |
+| Scroll reveal, hero zoom, botanical dividers | `included` | IntersectionObserver; 12 s hero zoom; film-grain overlay |
+| Transport smart-links | `included` | OS detection → Bolt, Letz, Yandex Go |
+| Gift / bank transfer section | `included` | EN only, hidden in RO. IBAN is public by design — accepted risk AR-01 |
+| Brand tokens in `:root` | `included` | Olive palette. Rule 6 — never introduce a colour without asking |
+| Service worker / offline | `absent` | Would make it a true offline PWA |
+| RSVP dashboard | `absent` | Read Sheets → headcount, dietary, transport, zeama counts |
+| Guest list manager | `absent` | Track who has and has not responded |
+| Countdown widget | `absent` | To 30 July 2026 |
+| Seating plan | `absent` | `tools/preview-seats.mjs` exists but **has never been runnable** — no Node on this machine, and no workflow references it |
+| Guest-name hashing | `absent` | `tools/hash-guests.mjs` — same: never runnable, unreferenced |
+| RSVP deadline enforcement | `absent` | Auto-hide or disable after 1 July 2026. Rule 9 |
+| Post-wedding thank-you state | `absent` | Keys off 30 July 2026. Rule 10 |
+| Book list | `absent` | Wishlist for the Library section |
+| Dark theme | `absent` | Not requested. Visual checks shoot light only |
+| Asset budget | `available` | `web_predeploy.py` flags two images over the 200 KB guideline on a live site: `hero.jpg` 443.6 KB and `story-main.jpg` 262.3 KB. Both load on first paint. Not fixed — recompressing production images is a separate, visual decision |
+| Automated tests | `available` | One suite: `tools/test_gallery_upload.py` — 12 behaviour tests over the upload path, `fetch` fully stubbed so nothing reaches Drive. Run it before touching the gallery. Nothing else on the site is covered |
+| Build tooling / bundler | `removed` | Deliberate — Rule 4. Restoring it is a Tier-1 decision, see [[web-tier-upgrade]] |
+| Backend / database | `removed` | Deliberate — Apps Script replaces it. Tier 2 otherwise |
+| Accounts / auth | `absent` | Tier 2. Guests need no account by design |
+| Payments | `absent` | Tier 2. The Gift section is a bank transfer, not a checkout |
+| Infrastructure as code | `absent` | Not adopted — no Terraform in this framework |
+
+**Director:** Vibe Coder Agent · **Tier:** 0 (zero-build static) · **Engaged subagents:** [[ui_specialist]], [[web_deploy_specialist]], plus [[frontend_engineer]] for any non-trivial slice.
+
+> **Two orphan tools.** `tools/hash-guests.mjs` and `tools/preview-seats.mjs` are Node ES modules. Node has never been installed on this machine, so neither has ever run, and no workflow references them. [[it_department]] has flagged this four sessions running. They are recorded `absent` above rather than quietly left as if they worked. Making them real is a Tier-1 ask — see [[web-tier-upgrade]].
+
+---
+
+## How It Works (reference)
 
 The site is a **single-file PWA** (`index.html`) — all HTML, CSS, and JavaScript in one file, no build step, no dependencies beyond Google Fonts.
 
@@ -65,21 +116,6 @@ The site is a **single-file PWA** (`index.html`) — all HTML, CSS, and JavaScri
 - **Known performance ceiling** — 6 photos take ~70-80s; researched 2026-07-29 whether a faster architecture exists (direct-to-Drive resumable upload, serverless proxy). Decided to keep Apps Script as-is given the wedding's timing — see [[../workflows/add-photo-gallery]] "Performance ceiling" section for the full reasoning and the documented future upgrade path if ever revisited
 
 ---
-
-## What's Pending
-
-Natural next features, in rough priority order:
-
-| Feature | Notes |
-|---|---|
-| RSVP dashboard | Read responses from Google Sheets; show headcount, dietary breakdown, transport split, zeama count |
-| Guest list manager | CSV/Sheets list of invited guests; track who has and hasn't responded |
-| Countdown widget | Days/hours/minutes to 30 July 2026; replace or augment the static date pill |
-| Seating plan | Interactive table assignments; could be a separate page or section |
-| Post-wedding thank-you page | Redirect or new section after the wedding date passes |
-| SW / offline support | `service-worker.js` for true offline PWA (currently just a manifest) |
-| RSVP deadline enforcement | Auto-hide or disable the form after 1 July 2026 |
-| Book list | Display a wishlist of books guests can choose to give (from the Library section concept) |
 
 ---
 
